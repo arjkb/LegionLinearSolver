@@ -106,6 +106,23 @@ void generate_rhs_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
   printf("\n Inside generate_rhs_task()");
+
+  assert(regions.size() == 1);
+  assert(task->regions.size() == 1);
+
+  FieldID fid = *(task->regions[0].privilege_fields.begin());
+
+  RegionAccessor <AccessorType::Generic, int> acc =
+    regions[0].get_field_accessor(fid).typeify<int>();
+
+  Domain dom = runtime->get_index_space_domain(ctx, task->regions[0].region.get_index_space());
+  Rect<1> rect = dom.get_rect<1>();
+
+  for(GenericPointInRectIterator<1> pir(rect); pir; pir++) {
+    acc.write(DomainPoint::from_point<1>(pir.p), rand() % 10);
+  }
+
+  printf("\n Filled in random() values into RHS");
 }
 
 void print_lr_task(const Task *task,
