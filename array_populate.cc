@@ -11,8 +11,7 @@ using namespace LegionRuntime::Accessor;
 
 enum TASK_ID  {
   TOP_LEVEL_TASK_ID,
-  PRINT_ARRAY_TASK_ID,
-  SECOND_ARRAY_TASK_ID,
+  PRINT_LR_TASK_ID
 };
 
 void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions, Context ctx, HighLevelRuntime *runtime)
@@ -61,9 +60,12 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
     }
   }
 
+  TaskLauncher print_lr_launcher(PRINT_LR_TASK_ID, TaskArgument(NULL, 0));
+  runtime->execute_task(ctx, print_lr_launcher);
+
 
   printf("\n Printing Loaded Values:\n");
-  
+
   /* GenericPointInRectIterator iterates through a row (index-space) */
   for(GenericPointInRectIterator<1> pir(elem_rect); pir; pir++) {
     for(int i = 0; i < COL; i++)  {
@@ -76,10 +78,19 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
 
 }
 
+void print_lr_task(const Task *task, const std::vector<PhysicalRegion> &regions, Context ctx, HighLevelRuntime *runtime) {
+  printf("\n All that glitters is not gold\n");
+
+}
+
+
+
 int main(int argc, char **argv) {
   HighLevelRuntime::set_top_level_task_id(TOP_LEVEL_TASK_ID);
 
   HighLevelRuntime::register_legion_task<top_level_task>(TOP_LEVEL_TASK_ID, Processor::LOC_PROC, true, false);
+  HighLevelRuntime::register_legion_task<print_lr_task>(PRINT_LR_TASK_ID, Processor::LOC_PROC, true, false);
+
 
   return HighLevelRuntime::start(argc, argv);
 }
