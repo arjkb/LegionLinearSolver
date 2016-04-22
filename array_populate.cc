@@ -11,7 +11,12 @@ using namespace LegionRuntime::Accessor;
 
 enum TASK_ID  {
   TOP_LEVEL_TASK_ID,
-  PRINT_LR_TASK_ID
+  PRINT_LR_TASK_ID,
+  GENERATE_RHS_TASK_ID
+};
+
+enum FieldIDs {
+  FID_RHS
 };
 
 void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions, Context ctx, HighLevelRuntime *runtime)
@@ -77,16 +82,32 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   //   }
   //   printf("\n");
   // }
-  printf("\n Done!\n");
 
+  Rect<1> elem_rect2(Point<1>(0), Point<1>(ROW - 1));
+  IndexSpace rhs_is = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect2));
+  FieldSpace rhd_fs = runtime->create_field_space(ctx);
+  {
+    FieldAllocator allocator = runtime->create_field_allocator(ctx, rhd_fs);
+    allocator.allocate_field(sizeof(int), FID_RHS);
+  }
+
+  LogicalRegion rhs_lr = runtime->create_logical_region(ctx, rhs_is, rhd_fs);
+
+  TaskLauncher generate_rhs_launcher(GENERATE_RHS_TASK_ID, TaskArgument(NULL, 0));
+  runtime->execute_task(ctx, generate_rhs_launcher);
+
+  printf("\n Done!\n");
+}
+
+void generate_rhs_task(const Task *task,
+            const std::vector<PhysicalRegion> &regions,
+            Context ctx, HighLevelRuntime *runtime) {
+  printf("\n Inside generate_rhs_task()");
 }
 
 void print_lr_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
-
-  assert(regions.size() == 1);
-  assert(task->regions.size() == 1);
 
   int *field_id = (int *) task->args;
 
@@ -117,6 +138,7 @@ int main(int argc, char **argv) {
 
   HighLevelRuntime::register_legion_task<top_level_task>(TOP_LEVEL_TASK_ID, Processor::LOC_PROC, true, false);
   HighLevelRuntime::register_legion_task<print_lr_task>(PRINT_LR_TASK_ID, Processor::LOC_PROC, true, false);
+  HighLevelRuntime::register_legion_task<generate_rhs_task>(GENERATE_RHS_TASK_ID, Processor::LOC_PROC, true, false);
 
 
   return HighLevelRuntime::start(argc, argv);
