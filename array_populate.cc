@@ -85,6 +85,9 @@ void print_lr_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
 
+  assert(regions.size() == 1);
+  assert(task->regions.size() == 1);
+
   int *field_id = (int *) task->args;
 
   RegionAccessor<AccessorType::Generic, int> region_accessor[COL];
