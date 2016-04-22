@@ -94,6 +94,9 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   LogicalRegion rhs_lr = runtime->create_logical_region(ctx, rhs_is, rhd_fs);
 
   TaskLauncher generate_rhs_launcher(GENERATE_RHS_TASK_ID, TaskArgument(NULL, 0));
+  generate_rhs_launcher.add_region_requirement(
+        RegionRequirement(rhs_lr, WRITE_DISCARD, EXCLUSIVE, rhs_lr));
+  generate_rhs_launcher.add_field(0, FID_RHS);
   runtime->execute_task(ctx, generate_rhs_launcher);
 
   printf("\n Done!\n");
