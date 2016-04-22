@@ -60,26 +60,50 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
     }
   }
 
-  TaskLauncher print_lr_launcher(PRINT_LR_TASK_ID, TaskArgument(NULL, 0));
+  TaskLauncher print_lr_launcher(PRINT_LR_TASK_ID, TaskArgument(field_id, sizeof(field_id)));
+  print_lr_launcher.add_region_requirement(RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
+  for(int i = 0; i < COL; i++)  {
+    print_lr_launcher.add_field(0, field_id[i]);
+  }
   runtime->execute_task(ctx, print_lr_launcher);
 
 
-  printf("\n Printing Loaded Values:\n");
-
   /* GenericPointInRectIterator iterates through a row (index-space) */
-  for(GenericPointInRectIterator<1> pir(elem_rect); pir; pir++) {
-    for(int i = 0; i < COL; i++)  {
-      int x = region_accessor[i].read(DomainPoint::from_point<1>(pir.p));
-      printf(" %d", x);
-    }
-    printf("\n");
-  }
+
+  // for(GenericPointInRectIterator<1> pir(elem_rect); pir; pir++) {
+  //   for(int i = 0; i < COL; i++)  {
+  //     int x = region_accessor[i].read(DomainPoint::from_point<1>(pir.p));
+  //     printf(" %d", x);
+  //   }
+  //   printf("\n");
+  // }
   printf("\n Done!\n");
 
 }
 
-void print_lr_task(const Task *task, const std::vector<PhysicalRegion> &regions, Context ctx, HighLevelRuntime *runtime) {
-  printf("\n All that glitters is not gold\n");
+void print_lr_task(const Task *task,
+            const std::vector<PhysicalRegion> &regions,
+            Context ctx, HighLevelRuntime *runtime) {
+
+  int *field_id = (int *) task->args;
+
+  RegionAccessor<AccessorType::Generic, int> region_accessor[COL];
+  for(int i = 0; i < COL; i++)  {
+    region_accessor[i] = regions[0].get_field_accessor(field_id[i]).typeify<int>();
+  }
+
+  Domain domain = runtime->get_index_space_domain(ctx, task->regions[0].region.get_index_space());
+  Rect <1> rect = domain.get_rect<1>();
+
+  printf("\n Printing Loaded Values:\n");
+
+  for(GenericPointInRectIterator<1> pir(rect); pir; pir++) {
+    for(int i = 0; i < COL; i++)  {
+      int x = region_accessor[i].read(DomainPoint::from_point<1>(pir.p));
+      printf("  > %d", x);
+    }
+    printf("\n");
+  }
 
 }
 
