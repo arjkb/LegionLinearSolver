@@ -33,7 +33,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
     FieldAllocator allocator = runtime->create_field_allocator(ctx, fs);
 
     for(int i = 0; i < COL; i++)  {
-      field_id[i] = allocator.allocate_field(sizeof(int));
+      field_id[i] = allocator.allocate_field(sizeof(double));
     }
   }
 
@@ -56,15 +56,15 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   PhysicalRegion input_region = runtime->map_region(ctx, input_launcher);
   input_region.wait_until_valid();
 
-  RegionAccessor<AccessorType::Generic, int> region_accessor[COL];
+  RegionAccessor<AccessorType::Generic, double> region_accessor[COL];
 
   for(int i = 0; i < COL; i++)  {
-    region_accessor[i] = input_region.get_field_accessor(field_id[i]).typeify<int>();
+    region_accessor[i] = input_region.get_field_accessor(field_id[i]).typeify<double>();
   }
 
   for(GenericPointInRectIterator<1> pir(elem_rect); pir; pir++) {
     for(int i = 0; i < COL; i++)  {
-       region_accessor[i].write(DomainPoint::from_point<1>(pir.p), (rand() % 100));
+       region_accessor[i].write(DomainPoint::from_point<1>(pir.p), (rand() % 1000));
     }
   }
 
@@ -76,22 +76,12 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   runtime->execute_task(ctx, print_lr_launcher);
 
 
-  /* GenericPointInRectIterator iterates through a row (index-space) */
-
-  // for(GenericPointInRectIterator<1> pir(elem_rect); pir; pir++) {
-  //   for(int i = 0; i < COL; i++)  {
-  //     int x = region_accessor[i].read(DomainPoint::from_point<1>(pir.p));
-  //     printf(" %d", x);
-  //   }
-  //   printf("\n");
-  // }
-
   Rect<1> elem_rect2(Point<1>(0), Point<1>(ROW - 1));
   IndexSpace rhs_is = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect2));
   FieldSpace rhd_fs = runtime->create_field_space(ctx);
   {
     FieldAllocator allocator = runtime->create_field_allocator(ctx, rhd_fs);
-    allocator.allocate_field(sizeof(int), FID_RHS);
+    allocator.allocate_field(sizeof(double), FID_RHS);
   }
 
   LogicalRegion rhs_lr = runtime->create_logical_region(ctx, rhs_is, rhd_fs);
@@ -108,7 +98,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   FieldSpace trimmed_col = runtime->create_field_space(ctx);
   {
     FieldAllocator allocator = runtime->create_field_allocator(ctx, trimmed_col);
-    allocator.allocate_field(sizeof(int), FID_TRIMMED_COL);
+    allocator.allocate_field(sizeof(double), FID_TRIMMED_COL);
   }
 
   LogicalRegion trim_lr = runtime->create_logical_region(ctx, trimmed_row, trimmed_col);
@@ -133,18 +123,15 @@ void trim_field_task(const Task *task,
 
   FieldID fid_orig = *(task->regions[1].privilege_fields.begin());
 
-  RegionAccessor<AccessorType::Generic, int> acc_trim =
-    regions[0].get_field_accessor(FID_TRIMMED_COL).typeify<int>();
+  RegionAccessor<AccessorType::Generic, double> acc_trim =
+    regions[0].get_field_accessor(FID_TRIMMED_COL).typeify<double>();
 
-  RegionAccessor<AccessorType::Generic, int> acc_orig =
-    regions[1].get_field_accessor(fid_orig).typeify<int>();
+  RegionAccessor<AccessorType::Generic, double> acc_orig =
+    regions[1].get_field_accessor(fid_orig).typeify<double>();
 
-  Domain dom = runtime->get_index_space_domain(ctx, task->regions[1].region.get_index_space());
-  Rect<1> rect = dom.get_rect<1>();
-
-  int first_element = acc_orig.read(DomainPoint::from_point<1>(0));
-  int current_element = 0;
-  int replacement_element = 0;
+  double first_element = acc_orig.read(DomainPoint::from_point<1>(0));
+  double current_element = 0;
+  double replacement_element = 0;
   for(int i = 1; i < ROW; i++) {
     current_element = acc_orig.read(DomainPoint::from_point<1>(i));
     replacement_element = current_element / first_element;
@@ -153,12 +140,9 @@ void trim_field_task(const Task *task,
 
   printf("\n Printing out the trimmed row: \n");
   for(int i = 0; i < ROW; i++) {
-    int x = acc_trim.read(DomainPoint::from_point<1>(i));
-    printf("\n -> %d", x);
+    double x = acc_trim.read(DomainPoint::from_point<1>(i));
+    printf("\n -> %lf", x);
   }
-
-
-
 }
 
 void generate_rhs_task(const Task *task,
@@ -171,8 +155,8 @@ void generate_rhs_task(const Task *task,
 
   FieldID fid = *(task->regions[0].privilege_fields.begin());
 
-  RegionAccessor <AccessorType::Generic, int> acc =
-    regions[0].get_field_accessor(fid).typeify<int>();
+  RegionAccessor <AccessorType::Generic, double> acc =
+    regions[0].get_field_accessor(fid).typeify<double>();
 
   Domain dom = runtime->get_index_space_domain(ctx, task->regions[0].region.get_index_space());
   Rect<1> rect = dom.get_rect<1>();
@@ -190,9 +174,9 @@ void print_lr_task(const Task *task,
 
   int *field_id = (int *) task->args;
 
-  RegionAccessor<AccessorType::Generic, int> region_accessor[COL];
+  RegionAccessor<AccessorType::Generic, double> region_accessor[COL];
   for(int i = 0; i < COL; i++)  {
-    region_accessor[i] = regions[0].get_field_accessor(field_id[i]).typeify<int>();
+    region_accessor[i] = regions[0].get_field_accessor(field_id[i]).typeify<double>();
   }
 
   Domain domain = runtime->get_index_space_domain(ctx, task->regions[0].region.get_index_space());
@@ -202,8 +186,8 @@ void print_lr_task(const Task *task,
 
   for(GenericPointInRectIterator<1> pir(rect); pir; pir++) {
     for(int i = 0; i < COL; i++)  {
-      int x = region_accessor[i].read(DomainPoint::from_point<1>(pir.p));
-      printf("  > %d", x);
+      double x = region_accessor[i].read(DomainPoint::from_point<1>(pir.p));
+      printf("  > %lf", x);
     }
     printf("\n");
   }
