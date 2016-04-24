@@ -129,6 +129,36 @@ void trim_field_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
   printf("\nInside trim_field_task\n");
+
+
+  FieldID fid_orig = *(task->regions[1].privilege_fields.begin());
+
+  RegionAccessor<AccessorType::Generic, int> acc_trim =
+    regions[0].get_field_accessor(FID_TRIMMED_COL).typeify<int>();
+
+  RegionAccessor<AccessorType::Generic, int> acc_orig =
+    regions[1].get_field_accessor(fid_orig).typeify<int>();
+
+  Domain dom = runtime->get_index_space_domain(ctx, task->regions[1].region.get_index_space());
+  Rect<1> rect = dom.get_rect<1>();
+
+  int first_element = acc_orig.read(DomainPoint::from_point<1>(0));
+  int current_element = 0;
+  int replacement_element = 0;
+  for(int i = 1; i < ROW; i++) {
+    current_element = acc_orig.read(DomainPoint::from_point<1>(i));
+    replacement_element = current_element / first_element;
+    acc_trim.write(DomainPoint::from_point<1>(i), replacement_element);
+  }
+
+  printf("\n Printing out the trimmed row: \n");
+  for(int i = 0; i < ROW; i++) {
+    int x = acc_trim.read(DomainPoint::from_point<1>(i));
+    printf("\n -> %d", x);
+  }
+
+
+
 }
 
 void generate_rhs_task(const Task *task,
@@ -179,8 +209,6 @@ void print_lr_task(const Task *task,
   }
 
 }
-
-
 
 int main(int argc, char **argv) {
   HighLevelRuntime::set_top_level_task_id(TOP_LEVEL_TASK_ID);
