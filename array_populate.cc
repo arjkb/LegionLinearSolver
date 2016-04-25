@@ -100,6 +100,10 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   generate_x0_task_launcher.add_field(0, field_id[0]);
   Future f_x0 = runtime->execute_task(ctx, generate_x0_task_launcher);
 
+  double f_result = f_x0.get_result<double>();
+
+  printf(" X0 from top_level_task: %lf", f_result);
+
   // Rect<1> elem_rect3(Point<1>(0), Point<1>(ROW - 1));
   // IndexSpace trimmed_row = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect3));
   // FieldSpace trimmed_col = runtime->create_field_space(ctx);
@@ -122,18 +126,35 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   printf("\n Done!\n");
 }
 
-int generate_x0_task(const Task *task,
+double generate_x0_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
   printf("\n Inside generate_x0_task()");
-  return 0;
+
+  FieldID fid_orig = *(task->regions[0].privilege_fields.begin());
+
+  RegionAccessor<AccessorType::Generic, double> acc_orig =
+    regions[0].get_field_accessor(fid_orig).typeify<double>();
+
+  printf("\n Printing out current row: \n");
+  for(int i = 0; i < ROW; i++) {
+    double x = acc_orig.read(DomainPoint::from_point<1>(i));
+    printf("\n -> %lf", x);
+  }
+
+  double divident = acc_orig.read(DomainPoint::from_point<1>(1));
+  double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
+  double result = (divident/divisor);
+
+  printf("\n XO from function: %lf\n", result);
+
+  return result;
 }
 
 void trim_field_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
   printf("\nInside trim_field_task\n");
-
 
   FieldID fid_orig = *(task->regions[1].privilege_fields.begin());
 
@@ -213,7 +234,7 @@ int main(int argc, char **argv) {
   HighLevelRuntime::register_legion_task<top_level_task>(TOP_LEVEL_TASK_ID, Processor::LOC_PROC, true, false);
   HighLevelRuntime::register_legion_task<print_lr_task>(PRINT_LR_TASK_ID, Processor::LOC_PROC, true, false);
   HighLevelRuntime::register_legion_task<generate_rhs_task>(GENERATE_RHS_TASK_ID, Processor::LOC_PROC, true, false);
-  HighLevelRuntime::register_legion_task<int, generate_x0_task>(GENERATE_X0_TASK_ID, Processor::LOC_PROC, true, false);
+  HighLevelRuntime::register_legion_task<double, generate_x0_task>(GENERATE_X0_TASK_ID, Processor::LOC_PROC, true, false);
   // HighLevelRuntime::register_legion_task<trim_field_task>(TRIM_FIELD_TASK_ID, Processor::LOC_PROC, true, false);
 
   return HighLevelRuntime::start(argc, argv);
