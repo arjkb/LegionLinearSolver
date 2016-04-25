@@ -182,13 +182,24 @@ void trim_row_task(const Task *task,
     region_accessor[i] = regions[0].get_field_accessor(trim_field_id[i]).typeify<double>();
 
   }
-  
+
   for(int i = 0; i < COL; i++)  {
     /* read the columns of row 0 */
     double x = region_accessor[i].read(DomainPoint::from_point<1>(0));
     x = x * x0;
-    region_accessor[i].write(DomainPoint::from_point<1>(0), x);
+    double y = region_accessor[i].read(DomainPoint::from_point<1>(1));
+    region_accessor[i].write(DomainPoint::from_point<1>(1), (y - x));
   }
+
+  printf("\n Printing out the reduced values: \n");
+  for(int i = 0; i < ROW; i++)  {
+    for(int j = 0; j < COL; j++)  {
+      double x = region_accessor[j].read(DomainPoint::from_point<1>(i));
+      printf(" = %lf", x);
+    }
+    printf("\n");
+  }
+
 }
 
 void trim_field_task(const Task *task,
