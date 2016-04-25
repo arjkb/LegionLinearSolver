@@ -13,6 +13,7 @@ enum TASK_ID  {
   TOP_LEVEL_TASK_ID,
   PRINT_LR_TASK_ID,
   GENERATE_RHS_TASK_ID,
+  GENERATE_X0_TASK_ID,
 
   TRIM_FIELD_TASK_ID
 };
@@ -92,27 +93,40 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   generate_rhs_launcher.add_field(0, FID_RHS);
   runtime->execute_task(ctx, generate_rhs_launcher);
 
-
-  Rect<1> elem_rect3(Point<1>(0), Point<1>(ROW - 1));
-  IndexSpace trimmed_row = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect3));
-  FieldSpace trimmed_col = runtime->create_field_space(ctx);
-  {
-    FieldAllocator allocator = runtime->create_field_allocator(ctx, trimmed_col);
-    allocator.allocate_field(sizeof(double), FID_TRIMMED_COL);
-  }
-
-  LogicalRegion trim_lr = runtime->create_logical_region(ctx, trimmed_row, trimmed_col);
-
-  TaskLauncher trim_field_task_launcher(TRIM_FIELD_TASK_ID, TaskArgument(NULL, 0));
-  trim_field_task_launcher.add_region_requirement(
-    RegionRequirement(trim_lr, WRITE_DISCARD, EXCLUSIVE, trim_lr));
-  trim_field_task_launcher.add_field(0, FID_TRIMMED_COL);
-  trim_field_task_launcher.add_region_requirement(
+  /* GENERATE_X0_TASK */
+  TaskLauncher generate_x0_task_launcher(GENERATE_X0_TASK_ID, TaskArgument(NULL, 0));
+  generate_x0_task_launcher.add_region_requirement(
     RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
-  trim_field_task_launcher.add_field(1, field_id[0]);
-  runtime->execute_task(ctx, trim_field_task_launcher);
+  generate_x0_task_launcher.add_field(0, field_id[0]);
+  Future f_x0 = runtime->execute_task(ctx, generate_x0_task_launcher);
+
+  // Rect<1> elem_rect3(Point<1>(0), Point<1>(ROW - 1));
+  // IndexSpace trimmed_row = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect3));
+  // FieldSpace trimmed_col = runtime->create_field_space(ctx);
+  // {
+  //   FieldAllocator allocator = runtime->create_field_allocator(ctx, trimmed_col);
+  //   allocator.allocate_field(sizeof(double), FID_TRIMMED_COL);
+  // }
+  //
+  // LogicalRegion trim_lr = runtime->create_logical_region(ctx, trimmed_row, trimmed_col);
+  //
+  // TaskLauncher trim_field_task_launcher(TRIM_FIELD_TASK_ID, TaskArgument(NULL, 0));
+  // trim_field_task_launcher.add_region_requirement(
+  //   RegionRequirement(trim_lr, WRITE_DISCARD, EXCLUSIVE, trim_lr));
+  // trim_field_task_launcher.add_field(0, FID_TRIMMED_COL);
+  // trim_field_task_launcher.add_region_requirement(
+  //   RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
+  // trim_field_task_launcher.add_field(1, field_id[0]);
+  // runtime->execute_task(ctx, trim_field_task_launcher);
 
   printf("\n Done!\n");
+}
+
+int generate_x0_task(const Task *task,
+            const std::vector<PhysicalRegion> &regions,
+            Context ctx, HighLevelRuntime *runtime) {
+  printf("\n Inside generate_x0_task()");
+  return 0;
 }
 
 void trim_field_task(const Task *task,
@@ -191,7 +205,6 @@ void print_lr_task(const Task *task,
     }
     printf("\n");
   }
-
 }
 
 int main(int argc, char **argv) {
@@ -200,7 +213,8 @@ int main(int argc, char **argv) {
   HighLevelRuntime::register_legion_task<top_level_task>(TOP_LEVEL_TASK_ID, Processor::LOC_PROC, true, false);
   HighLevelRuntime::register_legion_task<print_lr_task>(PRINT_LR_TASK_ID, Processor::LOC_PROC, true, false);
   HighLevelRuntime::register_legion_task<generate_rhs_task>(GENERATE_RHS_TASK_ID, Processor::LOC_PROC, true, false);
-  HighLevelRuntime::register_legion_task<trim_field_task>(TRIM_FIELD_TASK_ID, Processor::LOC_PROC, true, false);
+  HighLevelRuntime::register_legion_task<int, generate_x0_task>(GENERATE_X0_TASK_ID, Processor::LOC_PROC, true, false);
+  // HighLevelRuntime::register_legion_task<trim_field_task>(TRIM_FIELD_TASK_ID, Processor::LOC_PROC, true, false);
 
   return HighLevelRuntime::start(argc, argv);
 }
