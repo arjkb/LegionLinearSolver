@@ -14,7 +14,7 @@ enum TASK_ID  {
   PRINT_LR_TASK_ID,
   GENERATE_RHS_TASK_ID,
   GENERATE_X0_TASK_ID,
-
+  TRIM_ROW_TASK_ID,
   TRIM_FIELD_TASK_ID
 };
 
@@ -100,9 +100,21 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   generate_x0_task_launcher.add_field(0, field_id[0]);
   Future f_x0 = runtime->execute_task(ctx, generate_x0_task_launcher);
 
-  double f_result = f_x0.get_result<double>();
+  /* TRIM_ROW_TASK */
+  TaskLauncher trim_row_task_launcher(GENERATE_X0_TASK_ID, TaskArgument(NULL, 0));
+  trim_row_task_launcher.add_future(f_result);
+  trim_row_task_launcher.add_region_requirement(
+  RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
+  {
+    for(int i = 0; i < COL; i++)  {
+      trim_row_task_launcher.add_field(0, field_id[i]);
+    }
+  }
+  runtime->execute_task(ctx, trim_row_task_launcher);
 
+  double f_result = f_x0.get_result<double>();
   printf(" X0 from top_level_task: %lf", f_result);
+
 
   // Rect<1> elem_rect3(Point<1>(0), Point<1>(ROW - 1));
   // IndexSpace trimmed_row = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect3));
@@ -149,6 +161,16 @@ double generate_x0_task(const Task *task,
   printf("\n XO from function: %lf\n", result);
 
   return result;
+}
+
+void trim_row_task(const Task *task,
+            const std::vector<PhysicalRegion> &regions,
+            Context ctx, HighLevelRuntime *runtime) {
+  printf("\n Inside trim_row_task()");
+
+  Future f_x0 = task->futures[0];
+  double x0 = f_x0.get_result<double>();
+  printf("\n From trim_row_task: %d", x0);
 }
 
 void trim_field_task(const Task *task,
