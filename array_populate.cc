@@ -121,7 +121,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   // }
 
 
-  for(int i = 0; i < COL; i++)  {
+  for(int i = 1; i < COL; i++)  {
     generate_x0_task_launcher.argument = TaskArgument(&i, sizeof(i));
     Future f_x0 = runtime->execute_task(ctx, generate_x0_task_launcher);
 
@@ -163,8 +163,8 @@ double generate_x0_task(const Task *task,
 
   FieldID fid_orig = *(task->regions[0].privilege_fields.begin());
 
-  int a = *((int *) task->args);
-  printf("\n TaskArgument from gxt: #%d", a);
+  int target_row = *((int *) task->args);
+  printf("\n TaskArgument from gxt: #%d", target_row);
 
   RegionAccessor<AccessorType::Generic, double> acc_orig =
     regions[0].get_field_accessor(fid_orig).typeify<double>();
@@ -175,7 +175,7 @@ double generate_x0_task(const Task *task,
     printf("\n -> %lf", x);
   }
 
-  double divident = acc_orig.read(DomainPoint::from_point<1>(1));
+  double divident = acc_orig.read(DomainPoint::from_point<1>(target_row));
   double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
   double result = (divident/divisor);
 
@@ -193,8 +193,8 @@ void trim_row_task(const Task *task,
   double x0 = f_x0.get_result<double>();
   printf("\n From trim_row_task: %lf\n", x0);
 
-  int a = *((int *) task->args);
-  printf("\n TaskArgument from trt: #%d", a);
+  int target_row = *((int *) task->args);
+  printf("\n TaskArgument from trt: #%d", target_row);
   //int *trim_field_id = (int *) task->args;
 
   int size = *(task->regions[0].privilege_fields.begin());
@@ -226,8 +226,8 @@ void trim_row_task(const Task *task,
     /* read the columns of row 0 */
     double x = region_accessor[i].read(DomainPoint::from_point<1>(0));
     x = x * x0;
-    double y = region_accessor[i].read(DomainPoint::from_point<1>(1));
-    region_accessor[i].write(DomainPoint::from_point<1>(1), (y - x));
+    double y = region_accessor[i].read(DomainPoint::from_point<1>(target_row));
+    region_accessor[i].write(DomainPoint::from_point<1>(target_row), (y - x));
   }
 
   printf("\n Printing out the reduced values: \n");
