@@ -102,13 +102,12 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
 
   /* TRIM_ROW_TASK */
   TaskLauncher trim_row_task_launcher(TRIM_ROW_TASK_ID, TaskArgument(NULL, 0));
+  // TaskLauncher trim_row_task_launcher(TRIM_ROW_TASK_ID, TaskArgument(field_id, sizeof(field_id)));
   trim_row_task_launcher.add_future(f_x0);
   trim_row_task_launcher.add_region_requirement(
   RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
-  {
-    for(int i = 0; i < COL; i++)  {
-      trim_row_task_launcher.add_field(0, field_id[i]);
-    }
+  for(int i = 0; i < COL; i++)  {
+    trim_row_task_launcher.add_field(0, field_id[i]);
   }
   runtime->execute_task(ctx, trim_row_task_launcher);
 
@@ -172,15 +171,31 @@ void trim_row_task(const Task *task,
   double x0 = f_x0.get_result<double>();
   printf("\n From trim_row_task: %lf\n", x0);
 
+  //int *trim_field_id = (int *) task->args;
+
+  int size = *(task->regions[0].privilege_fields.begin());
+  printf("\n Size: %d\n", size);
+
   FieldID trim_field_id[COL];
+  int tf = *(task->regions[0].privilege_fields.begin());
   for(int i = 0; i < COL; i++)
   {
-    trim_field_id[i] = *(task->regions[0].privilege_fields.begin());
+    // trim_field_id[i] = *(task->regions[0].privilege_fields.begin());
+    trim_field_id[i] = tf++;
+    printf("\n TFI: %d", trim_field_id[i]);
   }
   RegionAccessor<AccessorType::Generic, double> region_accessor[COL];
   for(int i = 0; i < COL; i++)  {
     region_accessor[i] = regions[0].get_field_accessor(trim_field_id[i]).typeify<double>();
+  }
 
+  printf("\n Printing values before reduction: \n");
+  for(int i = 0; i < ROW; i++)  {
+    for(int j = 0; j < COL; j++)  {
+      double x = region_accessor[j].read(DomainPoint::from_point<1>(i));
+      printf(" = %lf", x);
+    }
+    printf("\n");
   }
 
   for(int i = 0; i < COL; i++)  {
