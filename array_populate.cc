@@ -4,7 +4,7 @@
 #include "legion.h"
 
 #define ROW 5
-#define COL 3
+#define COL 5
 
 using namespace LegionRuntime::HighLevel;
 using namespace LegionRuntime::Accessor;
@@ -94,18 +94,19 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   runtime->execute_task(ctx, generate_rhs_launcher);
 
   /* GENERATE_X0_TASK */
-  TaskLauncher generate_x0_task_launcher(GENERATE_X0_TASK_ID, TaskArgument(NULL, 0));
+  TaskLauncher generate_x0_task_launcher;
+  generate_x0_task_launcher.task_id = GENERATE_X0_TASK_ID;
   generate_x0_task_launcher.add_region_requirement(
     RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
   generate_x0_task_launcher.add_field(0, field_id[0]);
-  Future f_x0 = runtime->execute_task(ctx, generate_x0_task_launcher);
+
 
   /* TRIM_ROW_TASK */
   TaskLauncher trim_row_task_launcher; //(TRIM_ROW_TASK_ID); //, TaskArgument(NULL, 0));
   trim_row_task_launcher.task_id = TRIM_ROW_TASK_ID;
   trim_row_task_launcher.argument = TaskArgument(NULL, 0);
   // TaskLauncher trim_row_task_launcher(TRIM_ROW_TASK_ID, TaskArgument(field_id, sizeof(field_id)));
-  trim_row_task_launcher.add_future(f_x0);
+  // trim_row_task_launcher.add_future(f_x0);
   trim_row_task_launcher.add_region_requirement(
   RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
   for(int i = 0; i < COL; i++)  {
@@ -113,13 +114,24 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   }
   //runtime->execute_task(ctx, trim_row_task_launcher);
 
-  for(int i = 0; i < 5; i++)  {
-    trim_row_task_launcher.argument = TaskArgument(&i, sizeof(int));
+  // plugging in different arguments
+  // for(int i = 0; i < 3; i++)  {
+  //   trim_row_task_launcher.argument = TaskArgument(&i, sizeof(int));
+  //   runtime->execute_task(ctx, trim_row_task_launcher);
+  // }
+
+
+  for(int i = 0; i < COL; i++)  {
+    generate_x0_task_launcher.argument = TaskArgument(&i, sizeof(i));
+    Future f_x0 = runtime->execute_task(ctx, generate_x0_task_launcher);
+
+    trim_row_task_launcher.add_future(f_x0);
+    trim_row_task_launcher.argument = TaskArgument(&i, sizeof(i));
     runtime->execute_task(ctx, trim_row_task_launcher);
   }
 
-  double f_result = f_x0.get_result<double>();
-  printf(" X0 from top_level_task: %lf", f_result);
+  // double f_result = f_x0.get_result<double>();
+  // printf(" X0 from top_level_task: %lf", f_result);
 
 
   // Rect<1> elem_rect3(Point<1>(0), Point<1>(ROW - 1));
@@ -151,6 +163,9 @@ double generate_x0_task(const Task *task,
 
   FieldID fid_orig = *(task->regions[0].privilege_fields.begin());
 
+  int a = *((int *) task->args);
+  printf("\n TaskArgument from gxt: #%d", a);
+
   RegionAccessor<AccessorType::Generic, double> acc_orig =
     regions[0].get_field_accessor(fid_orig).typeify<double>();
 
@@ -179,7 +194,7 @@ void trim_row_task(const Task *task,
   printf("\n From trim_row_task: %lf\n", x0);
 
   int a = *((int *) task->args);
-  printf("\n TaskArgument #%d", a);
+  printf("\n TaskArgument from trt: #%d", a);
   //int *trim_field_id = (int *) task->args;
 
   int size = *(task->regions[0].privilege_fields.begin());
