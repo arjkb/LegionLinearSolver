@@ -128,11 +128,12 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
 
     trim_row_task_launcher.add_future(f_x0);
 
-    for(int j = 0; i < ROW; j++)  {
-      int row = i + j;
-      trim_row_task_launcher.argument = TaskArgument(&row, sizeof(row));
+    // for(int j = 0; i < ROW; j++)  {
+    //   int row = i + j;
+      // trim_row_task_launcher.argument = TaskArgument(&row, sizeof(row));
+      trim_row_task_launcher.argument = TaskArgument(&i, sizeof(i));
       runtime->execute_task(ctx, trim_row_task_launcher);
-    }
+    // }
   }
 
   // double f_result = f_x0.get_result<double>();
