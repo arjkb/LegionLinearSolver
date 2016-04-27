@@ -98,7 +98,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   generate_x0_task_launcher.task_id = GENERATE_X0_TASK_ID;
   generate_x0_task_launcher.add_region_requirement(
     RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
-  generate_x0_task_launcher.add_field(0, field_id[0]);
+  //generate_x0_task_launcher.add_field(0, field_id[0]);
 
 
   /* TRIM_ROW_TASK */
@@ -120,14 +120,19 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   //   runtime->execute_task(ctx, trim_row_task_launcher);
   // }
 
-
-  for(int i = 1; i < COL; i++)  {
+  /* the below loop is a mess. Needs correction */
+  for(int i = 1; i < ROW; i++)  {
     generate_x0_task_launcher.argument = TaskArgument(&i, sizeof(i));
+    generate_x0_task_launcher.add_field(0, field_id[i - 1]);
     Future f_x0 = runtime->execute_task(ctx, generate_x0_task_launcher);
 
     trim_row_task_launcher.add_future(f_x0);
-    trim_row_task_launcher.argument = TaskArgument(&i, sizeof(i));
-    runtime->execute_task(ctx, trim_row_task_launcher);
+
+    for(int j = 0; i < ROW; j++)  {
+      int row = i + j;
+      trim_row_task_launcher.argument = TaskArgument(&row, sizeof(row));
+      runtime->execute_task(ctx, trim_row_task_launcher);
+    }
   }
 
   // double f_result = f_x0.get_result<double>();
@@ -176,7 +181,7 @@ double generate_x0_task(const Task *task,
   }
 
   double divident = acc_orig.read(DomainPoint::from_point<1>(target_row));
-  double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
+  double divisor = acc_orig.read(DomainPoint::from_point<1>(target_row - 1));
   double result = (divident/divisor);
 
   printf("\n XO from function: %lf\n", result);
