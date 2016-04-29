@@ -118,7 +118,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   ArgumentMap arg_map_x0;
   for(int i = 0; i < (ROW - 1); i++)
   {
-    int input = i + 100;
+    int input = i + 1;
     arg_map_x0.set_point(DomainPoint::from_point<1>(Point<1>(i)),
                     TaskArgument(&input, sizeof(input)));
   }
@@ -177,15 +177,17 @@ double generate_x0_task(const Task *task,
     printf("\n -> %lf", x);
   }
 
-  // double divident = acc_orig.read(DomainPoint::from_point<1>(input_row_id));
-  // double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
-  // // double divisor = acc_orig.read(DomainPoint::from_point<1>(target_row - 1));
-  // double result = (divident/divisor);
+  double divident = acc_orig.read(DomainPoint::from_point<1>(input_row_id));
+  double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
+  // double divisor = acc_orig.read(DomainPoint::from_point<1>(target_row - 1));
+  double result = (divident/divisor);
 
-  // printf("\n XO from function: %lf\n", result);
-  //
-  // return result;
-  return 0;
+  printf("\n %lf %lf %lf", divident, divisor, result);
+
+  printf("\n XO from function #%d: %lf\n", my_rank, result);
+
+  return result;
+  //return 0;
 }
 
 void trim_row_task(const Task *task,
