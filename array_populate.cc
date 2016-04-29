@@ -112,36 +112,22 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   for(int i = 0; i < COL; i++)  {
     trim_row_task_launcher.add_field(0, field_id[i]);
   }
-  //runtime->execute_task(ctx, trim_row_task_launcher);
 
-  // plugging in different arguments
-  // for(int i = 0; i < 3; i++)  {
-  //   trim_row_task_launcher.argument = TaskArgument(&i, sizeof(int));
-  //   runtime->execute_task(ctx, trim_row_task_launcher);
-  // }
-
-  /* the below loop is a mess. Needs correction */
-  /* Trim the first column */
-  generate_x0_task_launcher.add_field(0, field_id[0]);
-  for(int i = 1; i < ROW; i++)  {
-    generate_x0_task_launcher.argument = TaskArgument(&i, sizeof(i));
-    {
-      Future f_x0 = runtime->execute_task(ctx, generate_x0_task_launcher);
-      printf("\n Generated f_x0: %lf", f_x0.get_result<double>());
-      trim_row_task_launcher.add_future(f_x0);
-      trim_row_task_launcher.argument = TaskArgument(&i, sizeof(i));
-      runtime->execute_task(ctx, trim_row_task_launcher);
-    }
-
-    // for(int j = 0; i < ROW; j++)  {
-    //   int row = i + j;
-      // trim_row_task_launcher.argument = TaskArgument(&row, sizeof(row));
-
-    // }
+  Rect<1> launch_bounds_x0(Point<1>(0), Point<1>(ROW - 2));
+  Domain launch_domain_x0 = Domain::from_rect<1>(launch_bounds_x0);
+  ArgumentMap arg_map_x0;
+  for(int i = 0; i < (ROW - 1); i++)
+  {
+    int input = i + 100;
+    arg_map_x0.set_point(DomainPoint::from_point<1>(Point<1>(i)),
+                    TaskArgument(&input, sizeof(input)));
   }
 
-  // double f_result = f_x0.get_result<double>();
-  // printf(" X0 from top_level_task: %lf", f_result);
+  IndexLauncher index_launcher_x0(GENERATE_X0_TASK_ID,
+    launch_domain_x0, TaskArgument(NULL, 0), arg_map_x0);
+
+  FutureMap fm = runtime->execute_index_space(ctx, index_launcher_x0);
+  fm.wait_all_results();
 
 
   // Rect<1> elem_rect3(Point<1>(0), Point<1>(ROW - 1));
@@ -169,30 +155,36 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
 double generate_x0_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
-  printf("\n Inside generate_x0_task()");
 
-  FieldID fid_orig = *(task->regions[0].privilege_fields.begin());
+  int my_rank = task->index_point.point_data[0];
+  int input = *((const int*) task->local_args);
+  printf("\n Inside generate_x0_task() #%d | input = %d", my_rank, input);
 
-  int target_row = *((int *) task->args);
-  printf("\n TaskArgument from gxt: #%d", target_row);
 
-  RegionAccessor<AccessorType::Generic, double> acc_orig =
-    regions[0].get_field_accessor(fid_orig).typeify<double>();
 
-  printf("\n Printing out current row: \n");
-  for(int i = 0; i < ROW; i++) {
-    double x = acc_orig.read(DomainPoint::from_point<1>(i));
-    printf("\n -> %lf", x);
-  }
+  // FieldID fid_orig = *(task->regions[0].privilege_fields.begin());
+  //
+  // int target_row = *((int *) task->args);
+  // printf("\n TaskArgument from gxt: #%d", target_row);
+  //
+  // RegionAccessor<AccessorType::Generic, double> acc_orig =
+  //   regions[0].get_field_accessor(fid_orig).typeify<double>();
+  //
+  // printf("\n Printing out current row: \n");
+  // for(int i = 0; i < ROW; i++) {
+  //   double x = acc_orig.read(DomainPoint::from_point<1>(i));
+  //   printf("\n -> %lf", x);
+  // }
+  //
+  // double divident = acc_orig.read(DomainPoint::from_point<1>(target_row));
+  // double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
+  // // double divisor = acc_orig.read(DomainPoint::from_point<1>(target_row - 1));
+  // double result = (divident/divisor);
+  //
+  // printf("\n XO from function: %lf\n", result);
 
-  double divident = acc_orig.read(DomainPoint::from_point<1>(target_row));
-  double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
-  // double divisor = acc_orig.read(DomainPoint::from_point<1>(target_row - 1));
-  double result = (divident/divisor);
-
-  printf("\n XO from function: %lf\n", result);
-
-  return result;
+  // return result;
+  return 0;
 }
 
 void trim_row_task(const Task *task,
@@ -230,7 +222,7 @@ void trim_row_task(const Task *task,
   printf("\n Printing values before reduction: \n");
   for(int i = 0; i < ROW; i++)  {
     for(int j = 0; j < COL; j++)  {
-      double x = region_accessor[j].read(DomainPoint::from_point<1>(i));
+      double x = region_accessor[j].read(DomainPoint::from_point<1>(Point<1>(i)));
       printf(" = %lf", x);
     }
     printf("\n");
