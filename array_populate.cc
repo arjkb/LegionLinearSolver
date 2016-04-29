@@ -125,18 +125,18 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   generate_x0_task_launcher.add_field(0, field_id[0]);
   for(int i = 1; i < ROW; i++)  {
     generate_x0_task_launcher.argument = TaskArgument(&i, sizeof(i));
-
     {
       Future f_x0 = runtime->execute_task(ctx, generate_x0_task_launcher);
       printf("\n Generated f_x0: %lf", f_x0.get_result<double>());
       trim_row_task_launcher.add_future(f_x0);
+      trim_row_task_launcher.argument = TaskArgument(&i, sizeof(i));
+      runtime->execute_task(ctx, trim_row_task_launcher);
     }
 
     // for(int j = 0; i < ROW; j++)  {
     //   int row = i + j;
       // trim_row_task_launcher.argument = TaskArgument(&row, sizeof(row));
-      trim_row_task_launcher.argument = TaskArgument(&i, sizeof(i));
-      runtime->execute_task(ctx, trim_row_task_launcher);
+
     // }
   }
 
