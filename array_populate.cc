@@ -98,7 +98,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   generate_x0_task_launcher.task_id = GENERATE_X0_TASK_ID;
   generate_x0_task_launcher.add_region_requirement(
     RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
-  //generate_x0_task_launcher.add_field(0, field_id[0]);
+  generate_x0_task_launcher.add_field(0, field_id[0]);
 
 
   /* TRIM_ROW_TASK */
@@ -125,6 +125,9 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
 
   IndexLauncher index_launcher_x0(GENERATE_X0_TASK_ID,
     launch_domain_x0, TaskArgument(NULL, 0), arg_map_x0);
+  index_launcher_x0.add_region_requirement(
+    RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
+  index_launcher_x0.add_field(0, field_id[0]);
 
   FutureMap fm = runtime->execute_index_space(ctx, index_launcher_x0);
   fm.wait_all_results();
@@ -157,32 +160,30 @@ double generate_x0_task(const Task *task,
             Context ctx, HighLevelRuntime *runtime) {
 
   int my_rank = task->index_point.point_data[0];
-  int input = *((const int*) task->local_args);
-  printf("\n Inside generate_x0_task() #%d | input = %d", my_rank, input);
+  int input_row_id = *((const int*) task->local_args);
+  printf("\n Inside generate_x0_task() #%d | input = %d", my_rank, input_row_id);
 
-
-
-  // FieldID fid_orig = *(task->regions[0].privilege_fields.begin());
+  FieldID fid_orig = *(task->regions[0].privilege_fields.begin());
   //
   // int target_row = *((int *) task->args);
   // printf("\n TaskArgument from gxt: #%d", target_row);
   //
-  // RegionAccessor<AccessorType::Generic, double> acc_orig =
-  //   regions[0].get_field_accessor(fid_orig).typeify<double>();
-  //
-  // printf("\n Printing out current row: \n");
-  // for(int i = 0; i < ROW; i++) {
-  //   double x = acc_orig.read(DomainPoint::from_point<1>(i));
-  //   printf("\n -> %lf", x);
-  // }
-  //
-  // double divident = acc_orig.read(DomainPoint::from_point<1>(target_row));
+  RegionAccessor<AccessorType::Generic, double> acc_orig =
+    regions[0].get_field_accessor(fid_orig).typeify<double>();
+
+  printf("\n Printing out current row: \n");
+  for(int i = 0; i < ROW; i++) {
+    double x = acc_orig.read(DomainPoint::from_point<1>(i));
+    printf("\n -> %lf", x);
+  }
+
+  // double divident = acc_orig.read(DomainPoint::from_point<1>(input_row_id));
   // double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
   // // double divisor = acc_orig.read(DomainPoint::from_point<1>(target_row - 1));
   // double result = (divident/divisor);
-  //
-  // printf("\n XO from function: %lf\n", result);
 
+  // printf("\n XO from function: %lf\n", result);
+  //
   // return result;
   return 0;
 }
@@ -330,7 +331,7 @@ int main(int argc, char **argv) {
   HighLevelRuntime::register_legion_task<top_level_task>(TOP_LEVEL_TASK_ID, Processor::LOC_PROC, true, false);
   HighLevelRuntime::register_legion_task<print_lr_task>(PRINT_LR_TASK_ID, Processor::LOC_PROC, true, false);
   HighLevelRuntime::register_legion_task<generate_rhs_task>(GENERATE_RHS_TASK_ID, Processor::LOC_PROC, true, false);
-  HighLevelRuntime::register_legion_task<double, generate_x0_task>(GENERATE_X0_TASK_ID, Processor::LOC_PROC, true, false);
+  HighLevelRuntime::register_legion_task<double, generate_x0_task>(GENERATE_X0_TASK_ID, Processor::LOC_PROC, true, true /* index */);
   HighLevelRuntime::register_legion_task<trim_row_task>(TRIM_ROW_TASK_ID, Processor::LOC_PROC, true, false);
   // HighLevelRuntime::register_legion_task<trim_field_task>(TRIM_FIELD_TASK_ID, Processor::LOC_PROC, true, false);
 
