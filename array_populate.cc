@@ -223,7 +223,9 @@ double generate_x0_task(const Task *task,
 void trim_row_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
-  printf("\n Inside trim_row_task()");
+  int my_rank = task->index_point.point_data[0];
+
+  printf("\n Inside trim_row_task() #%d", my_rank);
 
   // Future f_x = task->futures[0];
   // double x0 = f_x.get_result<double>();
