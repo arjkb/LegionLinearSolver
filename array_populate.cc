@@ -139,7 +139,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
     printf("\n Received X0: %lf", received_x0);
   }
 
-  int trt_args[2];
+  double trt_args[2];
   Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
   Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
   ArgumentMap arg_map_trt;
@@ -156,8 +156,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   index_launcher_trt.add_region_requirement(
     RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
 
-  for(int i = 0; i < COL; i++)
-  {
+  for(int i = 0; i < COL; i++)  {
     index_launcher_trt.add_field(0, field_id[i]);
   }
 
@@ -233,52 +232,55 @@ void trim_row_task(const Task *task,
 
   // int target_row = *((int *) task->args);
 
-  const int *trt_args = ((const int *) task->args);
+  const double *trt_args = ((const double *) task->local_args);
 
-  printf("\n Argument #1: %d", trt_args[0]);
-  printf("\n Argument #2: %d", trt_args[1]);
+  const double x0 = trt_args[0];
+  const int my_row = trt_args[1];
 
-  // /* Get all the field IDs */
-  // FieldID trim_field_id[COL];
-  // int tf = *(task->regions[0].privilege_fields.begin());
-  // // Figure out the other field IDs...
-  // for(int i = 0; i < COL; i++)
-  // {
-  //   trim_field_id[i] = tf++;
-  //   printf("\n TFI: %d", trim_field_id[i]);
-  // }
-  //
-  // // Accessor for the fields
-  // RegionAccessor<AccessorType::Generic, double> region_accessor[COL];
-  // for(int i = 0; i < COL; i++)  {
-  //   region_accessor[i] = regions[0].get_field_accessor(trim_field_id[i]).typeify<double>();
-  // }
-  //
-  // printf("\n Printing values before reduction: \n");
-  // for(int i = 0; i < ROW; i++)  {
-  //   for(int j = 0; j < COL; j++)  {
-  //     double x = region_accessor[j].read(DomainPoint::from_point<1>(Point<1>(i)));
-  //     printf(" = %lf", x);
-  //   }
-  //   printf("\n");
-  // }
-  //
-  // for(int i = 0; i < COL; i++)  {
-  //   /* read the columns of row 0 */
-  //   double x = region_accessor[i].read(DomainPoint::from_point<1>(0));
-  //   x = x * x0;
-  //   double y = region_accessor[i].read(DomainPoint::from_point<1>(target_row));
-  //   region_accessor[i].write(DomainPoint::from_point<1>(target_row), (y - x));
-  // }
-  //
-  // printf("\n Printing out the reduced values: \n");
-  // for(int i = 0; i < ROW; i++)  {
-  //   for(int j = 0; j < COL; j++)  {
-  //     double x = region_accessor[j].read(DomainPoint::from_point<1>(i));
-  //     printf(" = %lf", x);
-  //   }
-  //   printf("\n");
-  // }
+  printf("\n Argument #1: %lf", x0);
+  printf("\n Argument #2: %d", my_row);
+
+  /* Get all the field IDs */
+  FieldID trim_field_id[COL];
+  int tf = *(task->regions[0].privilege_fields.begin());
+  // Figure out the other field IDs...
+  for(int i = 0; i < COL; i++)
+  {
+    trim_field_id[i] = tf++;
+    printf("\n TFI: %d", trim_field_id[i]);
+  }
+
+  // Accessor for the fields
+  RegionAccessor<AccessorType::Generic, double> region_accessor[COL];
+  for(int i = 0; i < COL; i++)  {
+    region_accessor[i] = regions[0].get_field_accessor(trim_field_id[i]).typeify<double>();
+  }
+
+  printf("\n Printing values before reduction: \n");
+  for(int i = 0; i < ROW; i++)  {
+    for(int j = 0; j < COL; j++)  {
+      double x = region_accessor[j].read(DomainPoint::from_point<1>(Point<1>(i)));
+      printf(" = %lf", x);
+    }
+    printf("\n");
+  }
+
+  for(int i = 0; i < COL; i++)  {
+    /* read the columns of row  */
+    double x = region_accessor[i].read(DomainPoint::from_point<1>(0));
+    x = x * x0;
+    double y = region_accessor[i].read(DomainPoint::from_point<1>(my_row));
+    region_accessor[i].write(DomainPoint::from_point<1>(my_row), (y - x));
+  }
+
+  printf("\n Printing out the reduced values: \n");
+  for(int i = 0; i < ROW; i++)  {
+    for(int j = 0; j < COL; j++)  {
+      double x = region_accessor[j].read(DomainPoint::from_point<1>(i));
+      printf(" = %lf", x);
+    }
+    printf("\n");
+  }
 
 }
 
