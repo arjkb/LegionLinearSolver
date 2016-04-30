@@ -132,6 +132,13 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   FutureMap fm = runtime->execute_index_space(ctx, index_launcher_x0);
   fm.wait_all_results();
 
+  // Print the results
+  for(int i = 0; i < (ROW - 1); i++)
+  {
+    double received_x0 = fm.get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+    printf("\n Received X0: %lf", received_x0);
+  }
+
 
   // Rect<1> elem_rect3(Point<1>(0), Point<1>(ROW - 1));
   // IndexSpace trimmed_row = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect3));
