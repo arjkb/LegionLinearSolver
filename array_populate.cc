@@ -139,6 +139,29 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
     printf("\n Received X0: %lf", received_x0);
   }
 
+  int trt_args[2];
+  Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
+  Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
+  ArgumentMap arg_map_trt;
+  for(int i = 0; i < (ROW - 1); i++)  {
+    trt_args[0] = fm.get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+    trt_args[1] = i + 1;
+
+    arg_map_trt.set_point(DomainPoint::from_point<1>(Point<1>(i)),
+                    TaskArgument(&trt_args, sizeof(trt_args)));
+  }
+
+  IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
+    launch_domain_trt, TaskArgument(NULL, 0), arg_map_trt);
+  index_launcher_trt.add_region_requirement(
+    RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
+
+  for(int i = 0; i < COL; i++)
+  {
+    index_launcher_trt.add_field(0, field_id[i]);
+  }
+
+  runtime->execute_index_space(ctx, index_launcher_trt);
 
   // Rect<1> elem_rect3(Point<1>(0), Point<1>(ROW - 1));
   // IndexSpace trimmed_row = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect3));
@@ -202,58 +225,58 @@ void trim_row_task(const Task *task,
             Context ctx, HighLevelRuntime *runtime) {
   printf("\n Inside trim_row_task()");
 
-  Future f_x = task->futures[0];
-  double x0 = f_x.get_result<double>();
-  printf("\n From trim_row_task: %lf\n", x0);
+  // Future f_x = task->futures[0];
+  // double x0 = f_x.get_result<double>();
+  // printf("\n From trim_row_task: %lf\n", x0);
 
-  int target_row = *((int *) task->args);
-  printf("\n TaskArgument from trt: #%d", target_row);
-  //int *trim_field_id = (int *) task->args;
+  // int target_row = *((int *) task->args);
 
-  // int size = *(task->regions[0].privilege_fields.begin());
-  // printf("\n Size: %d\n", size);
+  const int *trt_args = ((const int *) task->args);
 
-  /* Get all the field IDs */
-  FieldID trim_field_id[COL];
-  int tf = *(task->regions[0].privilege_fields.begin());
-  // Figure out the other field IDs...
-  for(int i = 0; i < COL; i++)
-  {
-    trim_field_id[i] = tf++;
-    printf("\n TFI: %d", trim_field_id[i]);
-  }
+  printf("\n Argument #1: %d", trt_args[0]);
+  printf("\n Argument #2: %d", trt_args[1]);
 
-  // Accessor for the fields
-  RegionAccessor<AccessorType::Generic, double> region_accessor[COL];
-  for(int i = 0; i < COL; i++)  {
-    region_accessor[i] = regions[0].get_field_accessor(trim_field_id[i]).typeify<double>();
-  }
-
-  printf("\n Printing values before reduction: \n");
-  for(int i = 0; i < ROW; i++)  {
-    for(int j = 0; j < COL; j++)  {
-      double x = region_accessor[j].read(DomainPoint::from_point<1>(Point<1>(i)));
-      printf(" = %lf", x);
-    }
-    printf("\n");
-  }
-
-  for(int i = 0; i < COL; i++)  {
-    /* read the columns of row 0 */
-    double x = region_accessor[i].read(DomainPoint::from_point<1>(0));
-    x = x * x0;
-    double y = region_accessor[i].read(DomainPoint::from_point<1>(target_row));
-    region_accessor[i].write(DomainPoint::from_point<1>(target_row), (y - x));
-  }
-
-  printf("\n Printing out the reduced values: \n");
-  for(int i = 0; i < ROW; i++)  {
-    for(int j = 0; j < COL; j++)  {
-      double x = region_accessor[j].read(DomainPoint::from_point<1>(i));
-      printf(" = %lf", x);
-    }
-    printf("\n");
-  }
+  // /* Get all the field IDs */
+  // FieldID trim_field_id[COL];
+  // int tf = *(task->regions[0].privilege_fields.begin());
+  // // Figure out the other field IDs...
+  // for(int i = 0; i < COL; i++)
+  // {
+  //   trim_field_id[i] = tf++;
+  //   printf("\n TFI: %d", trim_field_id[i]);
+  // }
+  //
+  // // Accessor for the fields
+  // RegionAccessor<AccessorType::Generic, double> region_accessor[COL];
+  // for(int i = 0; i < COL; i++)  {
+  //   region_accessor[i] = regions[0].get_field_accessor(trim_field_id[i]).typeify<double>();
+  // }
+  //
+  // printf("\n Printing values before reduction: \n");
+  // for(int i = 0; i < ROW; i++)  {
+  //   for(int j = 0; j < COL; j++)  {
+  //     double x = region_accessor[j].read(DomainPoint::from_point<1>(Point<1>(i)));
+  //     printf(" = %lf", x);
+  //   }
+  //   printf("\n");
+  // }
+  //
+  // for(int i = 0; i < COL; i++)  {
+  //   /* read the columns of row 0 */
+  //   double x = region_accessor[i].read(DomainPoint::from_point<1>(0));
+  //   x = x * x0;
+  //   double y = region_accessor[i].read(DomainPoint::from_point<1>(target_row));
+  //   region_accessor[i].write(DomainPoint::from_point<1>(target_row), (y - x));
+  // }
+  //
+  // printf("\n Printing out the reduced values: \n");
+  // for(int i = 0; i < ROW; i++)  {
+  //   for(int j = 0; j < COL; j++)  {
+  //     double x = region_accessor[j].read(DomainPoint::from_point<1>(i));
+  //     printf(" = %lf", x);
+  //   }
+  //   printf("\n");
+  // }
 
 }
 
@@ -341,7 +364,7 @@ int main(int argc, char **argv) {
   HighLevelRuntime::register_legion_task<print_lr_task>(PRINT_LR_TASK_ID, Processor::LOC_PROC, true, false);
   HighLevelRuntime::register_legion_task<generate_rhs_task>(GENERATE_RHS_TASK_ID, Processor::LOC_PROC, true, false);
   HighLevelRuntime::register_legion_task<double, generate_x0_task>(GENERATE_X0_TASK_ID, Processor::LOC_PROC, true, true /* index */);
-  HighLevelRuntime::register_legion_task<trim_row_task>(TRIM_ROW_TASK_ID, Processor::LOC_PROC, true, false);
+  HighLevelRuntime::register_legion_task<trim_row_task>(TRIM_ROW_TASK_ID, Processor::LOC_PROC, true, true);
   // HighLevelRuntime::register_legion_task<trim_field_task>(TRIM_FIELD_TASK_ID, Processor::LOC_PROC, true, false);
 
   return HighLevelRuntime::start(argc, argv);
