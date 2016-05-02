@@ -150,7 +150,12 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
                             TaskArgument(&input, sizeof(input)));
     }
 
+
+
     if( k < (COL - 1))  {
+      // when (k == COL), the arguments would not be loaded because the
+      // i loop above would not have run, (and the program would crash)
+      
       IndexLauncher index_launcher_x0(GENERATE_X0_TASK_ID,
         launch_domain_x0, TaskArgument(&k, sizeof(k)), arg_map_x0);
       index_launcher_x0.add_region_requirement(
