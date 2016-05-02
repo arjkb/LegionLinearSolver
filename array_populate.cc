@@ -123,19 +123,24 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
                     TaskArgument(&input, sizeof(input)));
   }
 
+  int ta = 3;
+
   IndexLauncher index_launcher_x0(GENERATE_X0_TASK_ID,
-    launch_domain_x0, TaskArgument(NULL, 0), arg_map_x0);
+    launch_domain_x0, TaskArgument(&ta, sizeof(ta)), arg_map_x0);
   index_launcher_x0.add_region_requirement(
     RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
   index_launcher_x0.add_field(0, field_id[0]);
 
-  FutureMap fm = runtime->execute_index_space(ctx, index_launcher_x0);
-  fm.wait_all_results();
+  FutureMap fm[COL];
+
+  // FutureMap fm[0] = runtime->execute_index_space(ctx, index_launcher_x0);
+  fm[0] = runtime->execute_index_space(ctx, index_launcher_x0);
+  fm[0].wait_all_results();
 
   // Print the results
   for(int i = 0; i < (ROW - 1); i++)
   {
-    double received_x0 = fm.get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+    double received_x0 = fm[0].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
     printf("\n Received X0: %lf", received_x0);
   }
 
@@ -144,7 +149,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
   ArgumentMap arg_map_trt;
   for(int i = 0; i < (ROW - 1); i++)  {
-    trt_args[0] = fm.get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+    trt_args[0] = fm[0].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
     trt_args[1] = i + 1;
 
     arg_map_trt.set_point(DomainPoint::from_point<1>(Point<1>(i)),
@@ -189,8 +194,9 @@ double generate_x0_task(const Task *task,
             Context ctx, HighLevelRuntime *runtime) {
 
   int my_rank = task->index_point.point_data[0];
+  int tta = *((const int*) task->args);
   int input_row_id = *((const int*) task->local_args);
-  printf("\n Inside generate_x0_task() #%d | input = %d", my_rank, input_row_id);
+  printf("\n Inside generate_x0_task() #%d| tta = %d | input = %d", my_rank, tta, input_row_id);
 
   FieldID fid_orig = *(task->regions[0].privilege_fields.begin());
   //
