@@ -113,59 +113,89 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   //   trim_row_task_launcher.add_field(0, field_id[i]);
   // }
 
-  Rect<1> launch_bounds_x0(Point<1>(0), Point<1>(ROW - 2));
-  Domain launch_domain_x0 = Domain::from_rect<1>(launch_bounds_x0);
-  ArgumentMap arg_map_x0;
-  for(int i = 0; i < (ROW - 1); i++)
-  {
-    int input = i + 1;
-    arg_map_x0.set_point(DomainPoint::from_point<1>(Point<1>(i)),
-                    TaskArgument(&input, sizeof(input)));
-  }
+  // Rect<1> launch_bounds_x0(Point<1>(0), Point<1>(ROW - 2));
+  // Domain launch_domain_x0 = Domain::from_rect<1>(launch_bounds_x0);
+  // ArgumentMap arg_map_x0;
+  //
+  // for(int i = 0; i < (ROW - 1); i++)
+  // {
+  //   int input = i + 1;
+  //   arg_map_x0.set_point(DomainPoint::from_point<1>(Point<1>(i)),
+  //   TaskArgument(&input, sizeof(input)));
+  // }
 
-  int ta = 3;
-
-  IndexLauncher index_launcher_x0(GENERATE_X0_TASK_ID,
-    launch_domain_x0, TaskArgument(&ta, sizeof(ta)), arg_map_x0);
-  index_launcher_x0.add_region_requirement(
-    RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
-  index_launcher_x0.add_field(0, field_id[0]);
-
+  // int ta = 3;
   FutureMap fm[COL];
+  for(int k = 0;  k < COL; k++) {
+
+    printf("\n Looping! %d", k);
+
+    // Launch bounds are between 0 and (ROW - 2 - k) because
+    // for each column, total number of rows decreases
+    Rect<1> launch_bounds_x0(Point<1>(0), Point<1>(ROW - 2 - k));
+
+    Domain launch_domain_x0 = Domain::from_rect<1>(launch_bounds_x0);
+    ArgumentMap arg_map_x0;
+
+    for(int i = 0; i < (ROW - 1 - k); i++)
+    {
+      // input reflects the DIVIDENT value in the task.
+      // It is increased by 1, because the first DIVIDENT will be in row 1
+
+      // the 'input' value is increased by k, as for each column, the pivot
+      // location is further below
+
+      int input = i + 1 + k;
+      arg_map_x0.set_point(DomainPoint::from_point<1>(Point<1>(i)),
+                            TaskArgument(&input, sizeof(input)));
+    }
+
+    if( k < (COL - 1))  {
+      IndexLauncher index_launcher_x0(GENERATE_X0_TASK_ID,
+        launch_domain_x0, TaskArgument(&k, sizeof(k)), arg_map_x0);
+      index_launcher_x0.add_region_requirement(
+      RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
+      index_launcher_x0.add_field(0, field_id[k]);
+      fm[k] = runtime->execute_index_space(ctx, index_launcher_x0);
+      fm[k].wait_all_results();
+    }
+  }
 
   // FutureMap fm[0] = runtime->execute_index_space(ctx, index_launcher_x0);
-  fm[0] = runtime->execute_index_space(ctx, index_launcher_x0);
-  fm[0].wait_all_results();
 
   // Print the results
-  for(int i = 0; i < (ROW - 1); i++)
-  {
-    double received_x0 = fm[0].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
-    printf("\n Received X0: %lf", received_x0);
-  }
+  // for(int k = 0; k < COL; k++)
+  // {
+  //   for(int i = 0; i < (ROW - 1); i++)
+  //   {
+  //     double received_x0 = fm[k].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+  //     printf("\n Received X0: %lf", received_x0);
+  //   }
+  //   printf("\n");
+  // }
 
-  double trt_args[2];
-  Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
-  Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
-  ArgumentMap arg_map_trt;
-  for(int i = 0; i < (ROW - 1); i++)  {
-    trt_args[0] = fm[0].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
-    trt_args[1] = i + 1;
-
-    arg_map_trt.set_point(DomainPoint::from_point<1>(Point<1>(i)),
-                    TaskArgument(&trt_args, sizeof(trt_args)));
-  }
-
-  IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
-    launch_domain_trt, TaskArgument(NULL, 0), arg_map_trt);
-  index_launcher_trt.add_region_requirement(
-    RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
-
-  for(int i = 0; i < COL; i++)  {
-    index_launcher_trt.add_field(0, field_id[i]);
-  }
-
-  runtime->execute_index_space(ctx, index_launcher_trt);
+  // double trt_args[2];
+  // Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
+  // Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
+  // ArgumentMap arg_map_trt;
+  // for(int i = 0; i < (ROW - 1); i++)  {
+  //   trt_args[0] = fm[0].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+  //   trt_args[1] = i + 1;
+  //
+  //   arg_map_trt.set_point(DomainPoint::from_point<1>(Point<1>(i)),
+  //                   TaskArgument(&trt_args, sizeof(trt_args)));
+  // }
+  //
+  // IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
+  //   launch_domain_trt, TaskArgument(NULL, 0), arg_map_trt);
+  // index_launcher_trt.add_region_requirement(
+  //   RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
+  //
+  // for(int i = 0; i < COL; i++)  {
+  //   index_launcher_trt.add_field(0, field_id[i]);
+  // }
+  //
+  // runtime->execute_index_space(ctx, index_launcher_trt);
 
   // Rect<1> elem_rect3(Point<1>(0), Point<1>(ROW - 1));
   // IndexSpace trimmed_row = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect3));
@@ -194,9 +224,9 @@ double generate_x0_task(const Task *task,
             Context ctx, HighLevelRuntime *runtime) {
 
   int my_rank = task->index_point.point_data[0];
-  int tta = *((const int*) task->args);
+  int input_col_id = *((const int*) task->args);
   int input_row_id = *((const int*) task->local_args);
-  printf("\n Inside generate_x0_task() #%d| tta = %d | input = %d", my_rank, tta, input_row_id);
+  printf("\n Inside generate_x0_task() #%d| input = (%d,%d)", my_rank, input_row_id, input_col_id);
 
   FieldID fid_orig = *(task->regions[0].privilege_fields.begin());
   //
@@ -206,20 +236,22 @@ double generate_x0_task(const Task *task,
   RegionAccessor<AccessorType::Generic, double> acc_orig =
     regions[0].get_field_accessor(fid_orig).typeify<double>();
 
-  printf("\n Printing out current row: \n");
+  printf("\n Printing out rows on current column: \n");
   for(int i = 0; i < ROW; i++) {
     double x = acc_orig.read(DomainPoint::from_point<1>(i));
     printf("\n -> %lf", x);
   }
 
   double divident = acc_orig.read(DomainPoint::from_point<1>(input_row_id));
-  double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
+  double divisor = acc_orig.read(DomainPoint::from_point<1>(input_col_id));
+  // double divisor = acc_orig.read(DomainPoint::from_point<1>(0));
   // double divisor = acc_orig.read(DomainPoint::from_point<1>(target_row - 1));
+  // double result = 10;
   double result = (divident/divisor);
 
   printf("\n %lf %lf %lf", divident, divisor, result);
 
-  printf("\n XO from function #%d: %lf\n", my_rank, result);
+  printf("\n X0  from function #%d: %lf\n", my_rank, result);
 
   return result;
   //return 0;
