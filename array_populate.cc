@@ -150,12 +150,10 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
                             TaskArgument(&input, sizeof(input)));
     }
 
-
-
     if( k < (COL - 1))  {
       // when (k == COL), the arguments would not be loaded because the
       // i loop above would not have run, (and the program would crash)
-      
+
       IndexLauncher index_launcher_x0(GENERATE_X0_TASK_ID,
         launch_domain_x0, TaskArgument(&k, sizeof(k)), arg_map_x0);
       index_launcher_x0.add_region_requirement(
@@ -169,15 +167,15 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   // FutureMap fm[0] = runtime->execute_index_space(ctx, index_launcher_x0);
 
   // Print the results
-  // for(int k = 0; k < COL; k++)
-  // {
-  //   for(int i = 0; i < (ROW - 1); i++)
-  //   {
-  //     double received_x0 = fm[k].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
-  //     printf("\n Received X0: %lf", received_x0);
-  //   }
-  //   printf("\n");
-  // }
+  for(int k = 0; k < COL - 1; k++)
+  {
+    for(int i = 0; i < (ROW - 1 - k); i++)
+    {
+      double received_x0 = fm[k].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+      printf("\n Received X0: %lf", received_x0);
+    }
+    printf("\n");
+  }
 
   // double trt_args[2];
   // Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
