@@ -94,24 +94,24 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   runtime->execute_task(ctx, generate_rhs_launcher);
 
   /* GENERATE_X0_TASK */
-  TaskLauncher generate_x0_task_launcher;
-  generate_x0_task_launcher.task_id = GENERATE_X0_TASK_ID;
-  generate_x0_task_launcher.add_region_requirement(
-    RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
-  generate_x0_task_launcher.add_field(0, field_id[0]);
+  // TaskLauncher generate_x0_task_launcher;
+  // generate_x0_task_launcher.task_id = GENERATE_X0_TASK_ID;
+  // generate_x0_task_launcher.add_region_requirement(
+  //   RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
+  // generate_x0_task_launcher.add_field(0, field_id[0]);
 
 
   /* TRIM_ROW_TASK */
-  TaskLauncher trim_row_task_launcher; //(TRIM_ROW_TASK_ID); //, TaskArgument(NULL, 0));
-  trim_row_task_launcher.task_id = TRIM_ROW_TASK_ID;
-  trim_row_task_launcher.argument = TaskArgument(NULL, 0);
+  // TaskLauncher trim_row_task_launcher; //(TRIM_ROW_TASK_ID); //, TaskArgument(NULL, 0));
+  // trim_row_task_launcher.task_id = TRIM_ROW_TASK_ID;
+  // trim_row_task_launcher.argument = TaskArgument(NULL, 0);
   // TaskLauncher trim_row_task_launcher(TRIM_ROW_TASK_ID, TaskArgument(field_id, sizeof(field_id)));
   // trim_row_task_launcher.add_future(f_x0);
-  trim_row_task_launcher.add_region_requirement(
-  RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
-  for(int i = 0; i < COL; i++)  {
-    trim_row_task_launcher.add_field(0, field_id[i]);
-  }
+  // trim_row_task_launcher.add_region_requirement(
+  // RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
+  // for(int i = 0; i < COL; i++)  {
+  //   trim_row_task_launcher.add_field(0, field_id[i]);
+  // }
 
   Rect<1> launch_bounds_x0(Point<1>(0), Point<1>(ROW - 2));
   Domain launch_domain_x0 = Domain::from_rect<1>(launch_bounds_x0);
