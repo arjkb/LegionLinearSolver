@@ -126,7 +126,7 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
 
   // int ta = 3;
   FutureMap fm[COL];
-  for(int k = 0;  k < COL; k++) {
+  for(int k = 0;  k < (COL - 1); k++) {
 
     printf("\n Looping! %d", k);
 
@@ -150,21 +150,14 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
                             TaskArgument(&input, sizeof(input)));
     }
 
-    if( k < (COL - 1))  {
-      // when (k == COL), the arguments would not be loaded because the
-      // i loop above would not have run, (and the program would crash)
-
-      IndexLauncher index_launcher_x0(GENERATE_X0_TASK_ID,
+    IndexLauncher index_launcher_x0(GENERATE_X0_TASK_ID,
         launch_domain_x0, TaskArgument(&k, sizeof(k)), arg_map_x0);
-      index_launcher_x0.add_region_requirement(
-      RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
-      index_launcher_x0.add_field(0, field_id[k]);
-      fm[k] = runtime->execute_index_space(ctx, index_launcher_x0);
-      fm[k].wait_all_results();
-    }
+    index_launcher_x0.add_region_requirement(
+    RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
+    index_launcher_x0.add_field(0, field_id[k]);
+    fm[k] = runtime->execute_index_space(ctx, index_launcher_x0);
+    fm[k].wait_all_results();
   }
-
-  // FutureMap fm[0] = runtime->execute_index_space(ctx, index_launcher_x0);
 
   // Print the results
   for(int k = 0; k < COL - 1; k++)
