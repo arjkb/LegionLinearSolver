@@ -373,6 +373,12 @@ void trim_row_task(const Task *task,
     printf("\n");
   }
 
+  printf("\n Printing RHS before reduction: \n");
+  for(int i = 0; i < ROW; i++)  {
+    double value = rhs_region_accessor.read(DomainPoint::from_point<1>(i));
+    printf(" %lf\n", value);
+  }
+
   for(int i = 0; i < COL; i++)  {
     /* read the columns of row  */
     double x = region_accessor[i].read(DomainPoint::from_point<1>(PIVOT_ROW));
@@ -394,6 +400,12 @@ void trim_row_task(const Task *task,
       printf(" = %lf", x);
     }
     printf("\n");
+  }
+
+  printf("\n Printing RHS after reduction: \n");
+  for(int i = 0; i < ROW; i++)  {
+    double value = rhs_region_accessor.read(DomainPoint::from_point<1>(i));
+    printf(" %lf\n", value);
   }
 }
 
@@ -444,7 +456,7 @@ void generate_rhs_task(const Task *task,
   Rect<1> rect = dom.get_rect<1>();
 
   for(GenericPointInRectIterator<1> pir(rect); pir; pir++) {
-    acc.write(DomainPoint::from_point<1>(pir.p), rand() % 10);
+    acc.write(DomainPoint::from_point<1>(pir.p), 2 + rand() % 10);
   }
 
   printf("\n Filled in random() values into RHS");
