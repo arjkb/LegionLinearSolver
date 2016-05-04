@@ -126,6 +126,11 @@ void top_level_task(const Task *task,
   // }
 
   // int ta = 3;
+  double trt_args[2] = {0};
+  Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
+  Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
+  ArgumentMap arg_map_trt;
+
   FutureMap fm[COL];
   for(int k = 0;  k < (COL - 1); k++) {
 
@@ -134,7 +139,6 @@ void top_level_task(const Task *task,
     // Launch bounds are between 0 and (ROW - 2 - k) because
     // for each column, total number of rows decreases
     Rect<1> launch_bounds_x0(Point<1>(0), Point<1>(ROW - 2 - k));
-
     Domain launch_domain_x0 = Domain::from_rect<1>(launch_bounds_x0);
     ArgumentMap arg_map_x0;
 
@@ -158,6 +162,27 @@ void top_level_task(const Task *task,
     index_launcher_x0.add_field(0, field_id[k]);
     fm[k] = runtime->execute_index_space(ctx, index_launcher_x0);
     fm[k].wait_all_results();
+
+
+    //  Go reduce the matrix. Necessary for generation of subsequent x0
+    //  generation of the next columns
+
+    for(int ii = 0; ii < (ROW - 1 - k); ii++) {
+      trt_args[0] = fm[k].get_result<double>(DomainPoint::from_point<1>(Point<1>(ii)));
+      trt_args[1] = ii + 1 + k;
+      printf("\n (ii, k) = (%d, %d)\n", ii, k);
+      arg_map_trt.set_point(DomainPoint::from_point<1>(Point<1>(ii)),
+                      TaskArgument(&trt_args, sizeof(trt_args)));
+    }
+    IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
+      launch_domain_trt, TaskArgument(&k, sizeof(k)), arg_map_trt);
+    index_launcher_trt.add_region_requirement(
+      RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
+
+    for(int i = 0; i < COL; i++)  {
+      index_launcher_trt.add_field(0, field_id[i]);
+    }
+    runtime->execute_index_space(ctx, index_launcher_trt);
   }
 
   // Print the results
@@ -172,37 +197,37 @@ void top_level_task(const Task *task,
   }
 
 
-  double trt_args[2];
-  Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
-  Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
-  ArgumentMap arg_map_trt;
-  for(int k = 0; k < COL - 1; k++)  {
-
-    for(int i = 0; i < (ROW - 1 - k); i++)  {
-      // trt_args[0] = 3;
-      fm[k].wait_all_results();
-      trt_args[0] = fm[k].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
-      // trt_args[0] = fm[0].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
-      trt_args[1] = i + 1;
-
-      // printf("\n trt_args[0] = %lf", trt_args[0]);
-
-      arg_map_trt.set_point(DomainPoint::from_point<1>(Point<1>(i)),
-                      TaskArgument(&trt_args, sizeof(trt_args)));
-    }
-    // IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
-    //   launch_domain_trt, TaskArgument(NULL, 0), arg_map_trt);
-    IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
-      launch_domain_trt, TaskArgument(&k, sizeof(k)), arg_map_trt);
-    index_launcher_trt.add_region_requirement(
-      RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
-
-    for(int i = 0; i < COL; i++)  {
-      index_launcher_trt.add_field(0, field_id[i]);
-    }
-
-    runtime->execute_index_space(ctx, index_launcher_trt);
-  }
+  // double trt_args[2];
+  // Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
+  // Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
+  // ArgumentMap arg_map_trt;
+  // for(int k = 0; k < COL - 1; k++)  {
+  //
+  //   for(int i = 0; i < (ROW - 1 - k); i++)  {
+  //     // trt_args[0] = 3;
+  //     fm[k].wait_all_results();
+  //     trt_args[0] = fm[k].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+  //     // trt_args[0] = fm[0].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+  //     trt_args[1] = i + 1;
+  //
+  //     // printf("\n trt_args[0] = %lf", trt_args[0]);
+  //
+  //     arg_map_trt.set_point(DomainPoint::from_point<1>(Point<1>(i)),
+  //                     TaskArgument(&trt_args, sizeof(trt_args)));
+  //   }
+  //   // IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
+  //   //   launch_domain_trt, TaskArgument(NULL, 0), arg_map_trt);
+  //   IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
+  //     launch_domain_trt, TaskArgument(&k, sizeof(k)), arg_map_trt);
+  //   index_launcher_trt.add_region_requirement(
+  //     RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
+  //
+  //   for(int i = 0; i < COL; i++)  {
+  //     index_launcher_trt.add_field(0, field_id[i]);
+  //   }
+  //
+  //   runtime->execute_index_space(ctx, index_launcher_trt);
+  // }
 
   // IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
   //   launch_domain_trt, TaskArgument(NULL, 0), arg_map_trt);
@@ -278,6 +303,7 @@ double generate_x0_task(const Task *task,
 void trim_row_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
+
   int my_rank = task->index_point.point_data[0];
 
   printf("\n Inside trim_row_task() #%d", my_rank);
