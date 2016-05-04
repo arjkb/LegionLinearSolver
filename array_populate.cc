@@ -127,8 +127,7 @@ void top_level_task(const Task *task,
 
   // int ta = 3;
   double trt_args[2] = {0};
-  Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
-  Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
+
   ArgumentMap arg_map_trt;
 
   FutureMap fm[COL];
@@ -141,6 +140,9 @@ void top_level_task(const Task *task,
     Rect<1> launch_bounds_x0(Point<1>(0), Point<1>(ROW - 2 - k));
     Domain launch_domain_x0 = Domain::from_rect<1>(launch_bounds_x0);
     ArgumentMap arg_map_x0;
+
+    Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2 - k));
+    Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
 
     for(int i = 0; i < (ROW - 1 - k); i++)
     {
