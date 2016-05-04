@@ -15,6 +15,7 @@ enum TASK_ID  {
   GENERATE_RHS_TASK_ID,
   GENERATE_X0_TASK_ID,
   TRIM_ROW_TASK_ID,
+  TRIM_RHS_TASK_ID,
   TRIM_FIELD_TASK_ID
 };
 
@@ -184,6 +185,12 @@ void top_level_task(const Task *task,
     for(int i = 0; i < COL; i++)  {
       index_launcher_trt.add_field(0, field_id[i]);
     }
+
+    /* handle RHS */
+    index_launcher_trt.add_region_requirement(
+      RegionRequirement(rhs_lr, READ_WRITE, EXCLUSIVE, rhs_lr));
+    index_launcher_trt.add_field(1, FID_RHS);
+
     runtime->execute_index_space(ctx, index_launcher_trt);
   }
 
@@ -261,6 +268,13 @@ void top_level_task(const Task *task,
   // trim_field_task_launcher.add_field(1, field_id[0]);
   // runtime->execute_task(ctx, trim_field_task_launcher);
 
+  // Rect<1> launch_bounds_trim_rhs(Point<1>(0), Point<1>(ROW - 1));
+  // Domain launch_domain_trim_rhs = Domain::from_rect<1>(launch_bounds_trim_rhs);
+  // ArgumentMap arg_map_trim_rhs;
+  //
+  // for(int i =  0; i < (ROW - 1); i++) {
+  //   int input =
+  // }
   printf("\n Done!\n");
 }
 
@@ -330,6 +344,9 @@ void trim_row_task(const Task *task,
   /* Get all the field IDs */
   FieldID trim_field_id[COL];
   int tf = *(task->regions[0].privilege_fields.begin());
+
+  FieldID rhs_field = *(task->regions[1].privilege_fields.begin());
+
   // Figure out the other field IDs...
   for(int i = 0; i < COL; i++)
   {
@@ -342,6 +359,10 @@ void trim_row_task(const Task *task,
   for(int i = 0; i < COL; i++)  {
     region_accessor[i] = regions[0].get_field_accessor(trim_field_id[i]).typeify<double>();
   }
+
+  // Accessor for the fields
+  RegionAccessor<AccessorType::Generic, double> rhs_region_accessor;
+  rhs_region_accessor = regions[1].get_field_accessor(rhs_field).typeify<double>();
 
   printf("\n Printing values before reduction: \n");
   for(int i = 0; i < ROW; i++)  {
@@ -360,6 +381,12 @@ void trim_row_task(const Task *task,
     region_accessor[i].write(DomainPoint::from_point<1>(my_row), (y - x));
   }
 
+  // Reduce the RHS
+  double x_rhs = rhs_region_accessor.read(DomainPoint::from_point<1>(PIVOT_ROW));
+  x_rhs = x_rhs * x0;
+  double y = rhs_region_accessor.read(DomainPoint::from_point<1>(my_row));
+  rhs_region_accessor.write(DomainPoint::from_point<1>(my_row), (y - x_rhs));
+
   printf("\n Printing out the reduced values: \n");
   for(int i = 0; i < ROW; i++)  {
     for(int j = 0; j < COL; j++)  {
@@ -369,6 +396,7 @@ void trim_row_task(const Task *task,
     printf("\n");
   }
 }
+
 
 void trim_field_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
@@ -464,6 +492,10 @@ int main(int argc, char **argv) {
 
   HighLevelRuntime::register_legion_task<trim_row_task>
             (TRIM_ROW_TASK_ID, Processor::LOC_PROC, true, true);
+
+  // HighLevelRuntime::register_legion_task<trim_rhs_task>
+  //           (TRIM_RHS_TASK_ID, Processor::LOC_PROC, true, true);
+
   // HighLevelRuntime::register_legion_task<trim_field_task>
   //           (TRIM_FIELD_TASK_ID, Processor::LOC_PROC, true, false);
 
