@@ -23,7 +23,9 @@ enum FieldIDs {
   FID_TRIMMED_COL
 };
 
-void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions, Context ctx, HighLevelRuntime *runtime)
+void top_level_task(const Task *task,
+                  const std::vector<PhysicalRegion> &regions, Context ctx,
+                  HighLevelRuntime *runtime)
 {
   int field_id[COL];
 
@@ -100,7 +102,6 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
   //   RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
   // generate_x0_task_launcher.add_field(0, field_id[0]);
 
-
   /* TRIM_ROW_TASK */
   // TaskLauncher trim_row_task_launcher; //(TRIM_ROW_TASK_ID); //, TaskArgument(NULL, 0));
   // trim_row_task_launcher.task_id = TRIM_ROW_TASK_ID;
@@ -170,18 +171,39 @@ void top_level_task(const Task *task, const std::vector<PhysicalRegion> &regions
     printf("\n");
   }
 
-  // double trt_args[2];
-  // Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
-  // Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
-  // ArgumentMap arg_map_trt;
-  // for(int i = 0; i < (ROW - 1); i++)  {
-  //   trt_args[0] = fm[0].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
-  //   trt_args[1] = i + 1;
-  //
-  //   arg_map_trt.set_point(DomainPoint::from_point<1>(Point<1>(i)),
-  //                   TaskArgument(&trt_args, sizeof(trt_args)));
-  // }
-  //
+
+  double trt_args[2];
+  Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
+  Domain launch_domain_trt = Domain::from_rect<1>(launch_bounds_trt);
+  ArgumentMap arg_map_trt;
+  for(int k = 0; k < COL - 1; k++)  {
+
+    for(int i = 0; i < (ROW - 1 - k); i++)  {
+      // trt_args[0] = 3;
+      fm[k].wait_all_results();
+      trt_args[0] = fm[k].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+      // trt_args[0] = fm[0].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
+      trt_args[1] = i + 1;
+
+      // printf("\n trt_args[0] = %lf", trt_args[0]);
+
+      arg_map_trt.set_point(DomainPoint::from_point<1>(Point<1>(i)),
+                      TaskArgument(&trt_args, sizeof(trt_args)));
+    }
+    // IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
+    //   launch_domain_trt, TaskArgument(NULL, 0), arg_map_trt);
+    IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
+      launch_domain_trt, TaskArgument(&k, sizeof(k)), arg_map_trt);
+    index_launcher_trt.add_region_requirement(
+      RegionRequirement(input_lr, READ_WRITE, EXCLUSIVE, input_lr));
+
+    for(int i = 0; i < COL; i++)  {
+      index_launcher_trt.add_field(0, field_id[i]);
+    }
+
+    runtime->execute_index_space(ctx, index_launcher_trt);
+  }
+
   // IndexLauncher index_launcher_trt(TRIM_ROW_TASK_ID,
   //   launch_domain_trt, TaskArgument(NULL, 0), arg_map_trt);
   // index_launcher_trt.add_region_requirement(
@@ -270,9 +292,12 @@ void trim_row_task(const Task *task,
 
   const double x0 = trt_args[0];
   const int my_row = trt_args[1];
+  // const int PIVOT_ROW = 0;
+  const int PIVOT_ROW = *((const int *) task->args);
 
-  printf("\n Argument #1: %lf", x0);
-  printf("\n Argument #2: %d", my_row);
+  printf("\n Pivot Row: %d", PIVOT_ROW);
+  printf("\n Argument x0 #1: %lf", x0);
+  printf("\n Argument my_row #2: %d", my_row);
 
   /* Get all the field IDs */
   FieldID trim_field_id[COL];
@@ -301,7 +326,7 @@ void trim_row_task(const Task *task,
 
   for(int i = 0; i < COL; i++)  {
     /* read the columns of row  */
-    double x = region_accessor[i].read(DomainPoint::from_point<1>(0));
+    double x = region_accessor[i].read(DomainPoint::from_point<1>(PIVOT_ROW));
     x = x * x0;
     double y = region_accessor[i].read(DomainPoint::from_point<1>(my_row));
     region_accessor[i].write(DomainPoint::from_point<1>(my_row), (y - x));
@@ -315,7 +340,6 @@ void trim_row_task(const Task *task,
     }
     printf("\n");
   }
-
 }
 
 void trim_field_task(const Task *task,
@@ -398,12 +422,22 @@ void print_lr_task(const Task *task,
 int main(int argc, char **argv) {
   HighLevelRuntime::set_top_level_task_id(TOP_LEVEL_TASK_ID);
 
-  HighLevelRuntime::register_legion_task<top_level_task>(TOP_LEVEL_TASK_ID, Processor::LOC_PROC, true, false);
-  HighLevelRuntime::register_legion_task<print_lr_task>(PRINT_LR_TASK_ID, Processor::LOC_PROC, true, false);
-  HighLevelRuntime::register_legion_task<generate_rhs_task>(GENERATE_RHS_TASK_ID, Processor::LOC_PROC, true, false);
-  HighLevelRuntime::register_legion_task<double, generate_x0_task>(GENERATE_X0_TASK_ID, Processor::LOC_PROC, true, true /* index */);
-  HighLevelRuntime::register_legion_task<trim_row_task>(TRIM_ROW_TASK_ID, Processor::LOC_PROC, true, true);
-  // HighLevelRuntime::register_legion_task<trim_field_task>(TRIM_FIELD_TASK_ID, Processor::LOC_PROC, true, false);
+  HighLevelRuntime::register_legion_task<top_level_task>
+            (TOP_LEVEL_TASK_ID, Processor::LOC_PROC, true, false);
+
+  HighLevelRuntime::register_legion_task<print_lr_task>
+            (PRINT_LR_TASK_ID, Processor::LOC_PROC, true, false);
+
+  HighLevelRuntime::register_legion_task<generate_rhs_task>
+            (GENERATE_RHS_TASK_ID, Processor::LOC_PROC, true, false);
+
+  HighLevelRuntime::register_legion_task<double, generate_x0_task>
+            (GENERATE_X0_TASK_ID, Processor::LOC_PROC, true, true /* index */);
+
+  HighLevelRuntime::register_legion_task<trim_row_task>
+            (TRIM_ROW_TASK_ID, Processor::LOC_PROC, true, true);
+  // HighLevelRuntime::register_legion_task<trim_field_task>
+  //           (TRIM_FIELD_TASK_ID, Processor::LOC_PROC, true, false);
 
   return HighLevelRuntime::start(argc, argv);
 }
