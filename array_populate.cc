@@ -453,6 +453,37 @@ void solve_task(const Task *task,
             Context ctx, HighLevelRuntime *runtime) {
 
   printf("\n Inside solve_task!");
+
+  FieldID inp_field_id[COL];
+
+  int f = *(task->regions[0].privilege_fields.begin());
+
+  FieldID fid_rhs = *(task->regions[1].privilege_fields.begin());
+  FieldID fid_solve = *(task->regions[2].privilege_fields.begin());
+
+
+  // Figure out the other field IDs...
+  for(int i = 0; i < COL; i++)
+  {
+    inp_field_id[i] = f++;
+    printf("\n Input LR Field ID: %d", inp_field_id[i]);
+  }
+
+  RegionAccessor<AccessorType::Generic, double> acc_inp[COL];
+  for(int i = 0; i < COL; i++)
+  {
+    acc_inp[i] = regions[0].get_field_accessor(inp_field_id[i]).typeify<double>();
+  }
+
+  RegionAccessor<AccessorType::Generic, double> acc_rhs =
+    regions[1].get_field_accessor(fid_rhs).typeify<double>();
+
+  RegionAccessor<AccessorType::Generic, double> acc_solve =
+    regions[2].get_field_accessor(fid_solve).typeify<double>();
+
+
+
+
 }
 
 
