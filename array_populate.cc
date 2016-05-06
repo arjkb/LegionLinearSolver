@@ -16,7 +16,8 @@ enum TASK_ID  {
   GENERATE_X0_TASK_ID,
   TRIM_ROW_TASK_ID,
   TRIM_RHS_TASK_ID,
-  TRIM_FIELD_TASK_ID
+  TRIM_FIELD_TASK_ID,
+  SOLVE_TASK_ID
 };
 
 enum FieldIDs {
@@ -205,6 +206,9 @@ void top_level_task(const Task *task,
     printf("\n");
   }
 
+  // Launch the solver task
+  TaskLauncher solve_launcher(SOLVE_TASK_ID, TaskArgument(NULL, 0));
+  runtime->execute_task(ctx, solve_launcher);
 
   // double trt_args[2];
   // Rect<1> launch_bounds_trt(Point<1>(0), Point<1>(ROW - 2));
@@ -417,6 +421,13 @@ void trim_row_task(const Task *task,
   }
 }
 
+void solve_task(const Task *task,
+            const std::vector<PhysicalRegion> &regions,
+            Context ctx, HighLevelRuntime *runtime) {
+
+  printf("\n Inside solve_task!");
+}
+
 
 void trim_field_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
@@ -512,6 +523,9 @@ int main(int argc, char **argv) {
 
   HighLevelRuntime::register_legion_task<trim_row_task>
             (TRIM_ROW_TASK_ID, Processor::LOC_PROC, true, true);
+
+  HighLevelRuntime::register_legion_task<solve_task>
+            (SOLVE_TASK_ID, Processor::LOC_PROC, true, false);
 
   // HighLevelRuntime::register_legion_task<trim_rhs_task>
   //           (TRIM_RHS_TASK_ID, Processor::LOC_PROC, true, true);
