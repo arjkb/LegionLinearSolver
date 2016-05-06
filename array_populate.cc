@@ -337,6 +337,8 @@ void trim_row_task(const Task *task,
   // const int PIVOT_ROW = 0;
   const int PIVOT_ROW = *((const int *) task->args);
 
+  static int RHS_REDUCTION_STATUS[ROW] = {0};
+
   printf("\n Pivot Row: %d", PIVOT_ROW);
   printf("\n Argument x0 #1: %lf", x0);
   printf("\n Argument my_row #2: %d", my_row);
@@ -387,11 +389,17 @@ void trim_row_task(const Task *task,
     region_accessor[i].write(DomainPoint::from_point<1>(my_row), (y - x));
   }
 
-  // Reduce the RHS
-  double x_rhs = rhs_region_accessor.read(DomainPoint::from_point<1>(PIVOT_ROW));
-  x_rhs = x_rhs * x0;
-  double y = rhs_region_accessor.read(DomainPoint::from_point<1>(my_row));
-  rhs_region_accessor.write(DomainPoint::from_point<1>(my_row), (y - x_rhs));
+  if(RHS_REDUCTION_STATUS[PIVOT_ROW] == 0)  {
+
+    // Reduce the RHS
+    double x_rhs = rhs_region_accessor.read(DomainPoint::from_point<1>(PIVOT_ROW));
+    x_rhs = x_rhs * x0;
+    double y = rhs_region_accessor.read(DomainPoint::from_point<1>(my_row));
+    rhs_region_accessor.write(DomainPoint::from_point<1>(my_row), (y - x_rhs));
+
+    RHS_REDUCTION_STATUS[PIVOT_ROW] = 1;
+  }
+
 
   printf("\n Printing out the reduced values: \n");
   for(int i = 0; i < ROW; i++)  {
