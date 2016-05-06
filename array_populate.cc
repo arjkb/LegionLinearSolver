@@ -22,7 +22,8 @@ enum TASK_ID  {
 
 enum FieldIDs {
   FID_RHS,
-  FID_TRIMMED_COL
+  FID_TRIMMED_COL,
+  FID_SOLVE
 };
 
 void top_level_task(const Task *task,
@@ -206,8 +207,34 @@ void top_level_task(const Task *task,
     printf("\n");
   }
 
+  // Logical region for storing the resutls
+  Rect<1> elem_rect_solve(Point<1>(0), Point<1>(ROW - 1));
+  IndexSpace solve_is = runtime->create_index_space(ctx, Domain::from_rect<1>(elem_rect_solve));
+  FieldSpace solve_fs = runtime->create_field_space(ctx);
+  {
+      FieldAllocator allocator = runtime->create_field_allocator(ctx, solve_fs);
+      allocator.allocate_field(sizeof(double), FID_SOLVE);
+  }
+  LogicalRegion solve_lr = runtime->create_logical_region(ctx, solve_is, solve_fs);
+
+
+
   // Launch the solver task
   TaskLauncher solve_launcher(SOLVE_TASK_ID, TaskArgument(NULL, 0));
+  solve_launcher.add_region_requirement(
+    RegionRequirement(input_lr, READ_ONLY, EXCLUSIVE, input_lr));
+  solve_launcher.add_region_requirement(
+    RegionRequirement(rhs_lr, READ_ONLY, EXCLUSIVE, rhs_lr));
+  solve_launcher.add_region_requirement(
+    RegionRequirement(solve_lr, READ_WRITE, EXCLUSIVE, solve_lr));
+
+  // Add fields
+  for(int i = 0; i < COL; i++)  {
+    solve_launcher.add_field(0, field_id[i]);
+  }
+  solve_launcher.add_field(1, FID_RHS);
+  solve_launcher.add_field(2, FID_SOLVE);
+
   runtime->execute_task(ctx, solve_launcher);
 
   // double trt_args[2];
