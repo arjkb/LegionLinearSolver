@@ -202,7 +202,7 @@ void top_level_task(const Task *task,
     for(int i = 0; i < (ROW - 1 - k); i++)
     {
       double received_x0 = fm[k].get_result<double>(DomainPoint::from_point<1>(Point<1>(i)));
-      printf("\n Received X0: %lf", received_x0);
+      // printf("\n Received X0: %lf", received_x0);
     }
     printf("\n");
   }
@@ -452,6 +452,8 @@ void solve_task(const Task *task,
             const std::vector<PhysicalRegion> &regions,
             Context ctx, HighLevelRuntime *runtime) {
 
+  static int SOLVE_INIT_STATUS[COL]= {0};
+
   printf("\n Inside solve_task!");
 
   FieldID inp_field_id[COL];
@@ -481,8 +483,53 @@ void solve_task(const Task *task,
   RegionAccessor<AccessorType::Generic, double> acc_solve =
     regions[2].get_field_accessor(fid_solve).typeify<double>();
 
+    // double x = region_accessor[i].read(DomainPoint::from_point<1>(PIVOT_ROW));
+    // x = x * x0;
+    // double y = region_accessor[i].read(DomainPoint::from_point<1>(my_row));
+    // region_accessor[i].write(DomainPoint::from_point<1>(my_row), (y - x));
+
+  int i, j;
+
+  // Initialize the sokve_kr
+  for(i = 0; i < COL; i++)  {
+    if(SOLVE_INIT_STATUS[i] == 0) {
+      acc_solve.write(DomainPoint::from_point<1>(i), 1);
+      SOLVE_INIT_STATUS[i] = 1;
+    }
+  }
 
 
+  for(i = COL - 1; i >= 0; i--) {
+    double target = acc_inp[i].read(DomainPoint::from_point<1>(i));
+    double y = 0;
+
+    double temp_y = 0;
+    double temp_x = 0;
+
+    for(j = (i + 1); j < COL; j++)  {
+      temp_x = acc_solve.read(DomainPoint::from_point<1>(j));
+      temp_y = acc_inp[j].read(DomainPoint::from_point<1>(i));
+
+      y += (temp_x * temp_y);
+
+      // printf("\n (y, tx, ty) (%lf, %lf, %lf)", y, temp_x, temp_y);
+    }
+    printf("\n");
+
+    double rhs = acc_rhs.read(DomainPoint::from_point<1>(i));
+    double z = rhs - y;
+    double x = z / target;
+
+    // printf("\n (x = %lf, rhs = %lf, z = %lf, y = %lf, target = %lf)", x, rhs, z, y, target);
+
+    acc_solve.write(DomainPoint::from_point<1>(i), x);
+  }
+
+  printf("\n\n The Solution: \n");
+  for(i = 0; i < COL; i++)  {
+    double value = acc_solve.read(DomainPoint::from_point<1>(i));
+    printf(" %lf\n", value);
+  }
 
 }
 
